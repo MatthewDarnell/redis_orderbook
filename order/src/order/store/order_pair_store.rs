@@ -1,16 +1,11 @@
 extern crate redis;
-use std::time::SystemTime;
 use uuid::Uuid;
-use crate::order::Order;
-use crate::order::order_type::OrderType;
-use crate::order::order_executor_result::OrderExecutorResult;
 use redis::connection::Connection;
-use redis::types::{redis_hash, redis_key, redis_list, redis_set, redis_sorted_set};
-use self::redis::connection::RedisResult;
+use redis::types::redis_set;
 use crate::order::order_pair::Pair;
 
 
-pub fn add_new_pair(conn: &mut Connection, pair: Pair) {
+pub fn add_new_pair(conn: &mut Connection, pair: &Pair) {
     let serialized_pair = pair.serialize();
     redis_set::sadd(conn, "pairs", serialized_pair.as_str());
 }

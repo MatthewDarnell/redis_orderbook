@@ -1,4 +1,4 @@
-mod trade;
+pub mod trade;
 
 #[cfg(test)]
 mod tests {

@@ -1,15 +1,10 @@
 extern crate redis;
-use std::time::SystemTime;
-use std::cmp::Ordering;
 use uuid::Uuid;
 use std::str::FromStr;
 use crate::order::Order;
 use crate::order::order_type::OrderType;
-use crate::order::order_pair::Pair;
-use crate::order::order_executor_result::OrderExecutorResult;
 use redis::connection::Connection;
-use redis::types::{redis_hash, redis_key, redis_list, redis_set, redis_sorted_set};
-use self::redis::connection::RedisResult;
+use redis::types::{redis_hash, redis_list, redis_set, redis_sorted_set};
 
 use serde::{Serialize, Deserialize};
 
@@ -63,11 +58,11 @@ pub fn get_open_orders_for_ticker(conn: &mut Connection, user_id: &str, ticker: 
             let res: u128 = res.parse().unwrap_or_else(|_| 0);
             Some(res)
         },
-        Err(e) => Some(0)
+        Err(_) => Some(0)
     }
 }
 
-fn increment_user_open_order_balance(conn: &mut Connection, order: &Order, delta: u128) {
+fn increment_user_open_order_balance<T: std::fmt::Display>(conn: &mut Connection, order: &Order, delta: T) {
     let ticker = match &order.order_type {
         OrderType::BID => &order.pair.ref_ticker,
         OrderType::ASK => &order.pair.price_ticker,
@@ -78,15 +73,42 @@ fn increment_user_open_order_balance(conn: &mut Connection, order: &Order, delta
     value.push_str(ticker);
     match redis_hash::hincrby(conn, "user_open_order_sums", &value, delta.to_string().as_str()) {
         Ok(_) => {},
-        Err(e) => panic!("Unable to increment open order sums by {} -- {}", delta, e)
+        Err(e) => panic!("Unable to increment open order sums by {} -- {}", delta.to_string().as_str(), e)
     }
 }
 
-fn update_sums(conn: &mut Connection, pair_id: &String, price: u128, amount: u128) {
+fn update_sums<T: std::fmt::Display>(conn: &mut Connection, pair_id: &String, price: u128, amount: T) {   //redis constraint is i64
     let mut value = String::from(pair_id);
     value.push('-');
     value.push_str(price.to_string().as_str());
+    println!("incrmenting sums {}", amount.to_string());
     redis_hash::hincrby(conn, "sums", value.as_str(), amount.to_string().as_str());
+}
+
+pub fn update_order_amount(conn: &mut Connection, order: &mut Order, amount_to_update: i128) {
+    let current_total_cost = order.amount * order.price;
+    if amount_to_update < 0 {
+        match amount_to_update.checked_abs() {
+            Some(abs) => {
+                let abs = abs as u128;
+                order.amount.wrapping_sub(abs);
+            },
+            None => panic!("Could not update order by amount {}", amount_to_update)
+        }
+    } else {
+        order.amount.wrapping_add(amount_to_update as u128);
+    }
+
+    let new_total_cost = order.amount * order.price;
+    let order: &Order = order;
+    let serialized = order.serialize();
+    redis_hash::hset(conn, "orders", &order.uuid.to_string(), &serialized);
+    match order.order_type {
+        OrderType::BID => increment_user_open_order_balance(conn, order, new_total_cost - current_total_cost),
+        OrderType::ASK => increment_user_open_order_balance(conn, order, amount_to_update),
+        OrderType::DELETE => panic!("Cannot update delete order amount type")
+    }
+    update_sums(conn, &order.pair.uuid, order.price, amount_to_update);
 }
 
 fn create_bid(conn: &mut Connection, order: &Order, list_entry: &ListEntry) {
@@ -103,7 +125,7 @@ fn create_bid(conn: &mut Connection, order: &Order, list_entry: &ListEntry) {
     sorted_set_key.push_str(pair_uuid);
     redis_sorted_set::zadd(conn, sorted_set_key.as_str(), key.as_str(), price.to_string().as_str());
 
-     increment_user_open_order_balance(conn, order, order.total_cost());
+     increment_user_open_order_balance(conn, order, order.total_cost() as i128);
 }
 
 fn create_ask(conn: &mut Connection, order: &Order, list_entry: &ListEntry) {
@@ -120,7 +142,7 @@ fn create_ask(conn: &mut Connection, order: &Order, list_entry: &ListEntry) {
     sorted_set_key.push_str(pair_uuid);
     redis_sorted_set::zadd(conn, sorted_set_key.as_str(), key.as_str(), price.to_string().as_str());
 
-    increment_user_open_order_balance(conn, order, order.amount);
+    increment_user_open_order_balance(conn, order, order.amount as i128);
 }
 
 //Add a new order to uuid=>Order hash table
@@ -146,6 +168,35 @@ pub fn create_order(conn: &mut Connection, order: &Order) {
         _ => panic!("Trying to create Delete Order...")
     }
     update_sums(conn, &order.pair.uuid, order.price, order.amount);
+}
+
+//Delete an order
+pub fn delete_order(conn: &mut Connection, order: &Order) {
+    redis_hash::hdel(conn, "orders", order.uuid.to_string().as_str());
+    let list_element_to_remove: ListEntry = ListEntry::new(order.user_id.as_str(), order.uuid.to_string().as_str());
+    let mut list_key = match order.order_type {
+        OrderType::ASK => String::from("ASKS-"),
+        OrderType::BID => String::from("BIDS-"),
+        _ => panic!("Cannot delete this order")
+    };
+    list_key.push_str(order.pair.uuid.as_str());
+    list_key.push('-');
+    list_key.push_str(order.price.to_string().as_str());
+
+    redis_list::lrem(conn, list_key.as_str(), 0, list_element_to_remove.serialize());
+
+    let mut list_key = String::from("users-orders-");
+    list_key.push_str(order.user_id.as_str());
+    redis_set::srem(conn, list_key.as_str(), order.uuid.to_string().as_str());
+
+    update_sums(conn, &order.pair.uuid, order.price, 0-order.amount as i128);
+
+    match order.order_type {
+        OrderType::BID => increment_user_open_order_balance(conn, &order, 0 - ( order.amount * order.price ) as i128),
+        OrderType::ASK => increment_user_open_order_balance(conn, &order, 0 - order.amount as i128),
+        OrderType::DELETE => panic!("Cannot delete this order")
+    }
+
 }
 
 pub fn get_orders_by_user_id(conn: &mut Connection, user_id: &str) -> Option<Vec<Order>> {

@@ -12,6 +12,10 @@ pub fn lrange<T: FromRedisValue> (conn: &mut redis::Connection, list: &str, star
     conn.lrange(list, start as isize, stop as isize)
 }
 
+pub fn lrem<T: ToRedisArgs> (conn: &mut redis::Connection, list: &str, start: i32, val: T) -> redis::RedisResult<()> {
+    conn.lrem(list, start as isize, val)
+}
+
 pub fn rpush<T: ToRedisArgs> (conn: &mut redis::Connection, list: &str, val: T) -> redis::RedisResult<()> {
     conn.rpush(list, val)
 }

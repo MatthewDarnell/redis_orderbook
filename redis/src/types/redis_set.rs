@@ -15,6 +15,10 @@ pub fn smembers<T: FromRedisValue> (conn: &mut redis::Connection, key: &str) -> 
     conn.smembers(key)
 }
 
+pub fn srem<'a> (conn: &'a mut redis::Connection, key: &'a str, value: &'a str) -> redis::RedisResult<()> {
+    conn.srem(key, value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

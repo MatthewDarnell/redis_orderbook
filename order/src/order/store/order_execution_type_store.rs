@@ -1,16 +1,12 @@
 extern crate redis;
-use std::time::SystemTime;
 use std::cmp::Ordering;
-use uuid::Uuid;
 use crate::order::Order;
 use crate::order::order_type::OrderType;
-use crate::order::order_executor_result::OrderExecutorResult;
 use redis::connection::Connection;
-use redis::types::{redis_hash, redis_key, redis_list, redis_set, redis_sorted_set};
-use self::redis::connection::{RedisResult, ToRedisArgs};
+use redis::types::{redis_hash, redis_list};
+use self::redis::connection::ToRedisArgs;
 use crate::order::order_pair::Pair;
 use crate::order::store::order_store;
-use crate::order::order_execution_type::OrderExecutionType;
 use crate::order::store::order_type_store;
 
 
@@ -70,7 +66,7 @@ pub fn get_orders_by_price_index(conn: &mut Connection, order_type: &OrderType, 
     };
     side_to_get.push_str(&pair.uuid.to_string());
 
-    let mut orders;
+    let orders;
 
     match order_type {
         OrderType::BID => { //zrange bids-f0385e73-6f35-4ddc-8bcf-5c3dd8b2941e 0 100000000
@@ -97,7 +93,7 @@ pub fn get_orders_by_price<T: ToRedisArgs, V: ToRedisArgs>(conn: &mut Connection
     };
     side_to_get.push_str(&pair.uuid.to_string());
 
-    let mut orders;
+    let orders;
 
     match order_type {
         OrderType::BID => { //zrange bids-f0385e73-6f35-4ddc-8bcf-5c3dd8b2941e 0 100000000

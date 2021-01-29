@@ -1,13 +1,8 @@
 extern crate redis;
 use crate::order::Order;
 use crate::order::order_type::OrderType;
-use crate::order::order_pair;
-use crate::order::order_executor_result::OrderExecutorResult;
 use redis::connection::Connection;
-use redis::types::{redis_hash, redis_key, redis_list, redis_set, redis_sorted_set};
-use self::redis::connection::RedisResult;
-use super::uuid::Uuid;
-use crate::order::order_pair::Pair;
+use redis::types::{redis_hash};
 use crate::order::store::order_execution_type_store::{get_orders_by_price, get_orders_by_price_index};
 
 
@@ -15,13 +10,15 @@ pub fn get_sum_of_orders_for_price_point(conn: &mut Connection, pair: &String, p
     let mut field: String = String::from(pair);
     field.push('-');
     field.push_str(price.to_string().as_str());
+    println!("hget sums {}", field.as_str());
     match redis_hash::hget(conn, "sums", field.as_str()) {
         Ok(res) => {
             let res: String = res;
             res
         },
-        Err(e) => {
-            panic!("Couldn't get sum of orders for price point {} -- {}", price, e);
+        Err(_) => {
+            //panic!("Couldn't get sum of orders for price point {} -- {}", price, e);
+            "0".to_string()
         }
     }
 }

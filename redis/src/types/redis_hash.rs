@@ -3,6 +3,10 @@ pub use redis::FromRedisValue;
 use redis::ToRedisArgs;
 pub use redis::RedisResult;
 
+pub fn hdel<'a, 'b> (conn: &'a mut redis::Connection, key: &'a str, field: &'b str) -> redis::RedisResult<()> {
+    conn.hdel(key, field)
+}
+
 pub fn hget<'a, 'b, RV: FromRedisValue> (conn: &'a mut redis::Connection, key: &'a str, field: &'b str) -> redis::RedisResult<RV> {
     conn.hget(key, field)
 }
