@@ -2,6 +2,7 @@ extern crate order;
 extern crate redis;
 use std::time::SystemTime;
 use redis::connection::Connection;
+use redis::connection::PubSub;
 use order::order::Order;
 use order::order::order_type::OrderType;
 use order::order::order_executor::{ Executor, OrderExecutor };
@@ -12,11 +13,7 @@ use order::order::store::order_store;
 use order::order::store::order_pair_store;
 use self::order::order::store::order_store::{delete_order, create_order};
 
-
-
-
 use serde::{Serialize, Deserialize};
-
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TradePlaced {
@@ -58,7 +55,7 @@ impl TradePlaced {
     }
 }
 
-pub fn place_trade(conn: &mut Connection, o: &mut Order) {
+pub fn place_trade(conn: &mut Connection, publish_completed_trades: bool, o: &mut Order) {
     let side_to_get = match o.order_type {
         OrderType::BID => OrderType::ASK,
         OrderType::ASK => OrderType::BID,
@@ -113,6 +110,7 @@ pub fn place_trade(conn: &mut Connection, o: &mut Order) {
                 delete_order(conn, &existing_order);
             },
             OrderExecutorResult::ANNIHILATESEXISTING(amount, price, timestamp) => {
+                println!("order annihilated, new amount: {} - {}", amount, o.amount - amount);
                 o.amount -= amount;
                 trade_filled_amount = amount;
                 delete_order(conn, &existing_order);
@@ -153,8 +151,13 @@ pub fn place_trade(conn: &mut Connection, o: &mut Order) {
             ask_order_id,
             timestamp
         ).serialize();
-        println!("Trade Completed: {}", trade);
+
         redis::types::redis_set::sadd(conn, "trades_completed", trade.as_str());
+
+        if publish_completed_trades {
+            redis::types::redis_pubsub::publish(conn, "trades_completed", &trade);
+        }
+
     }
 
 

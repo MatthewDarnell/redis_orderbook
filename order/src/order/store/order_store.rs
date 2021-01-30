@@ -3,6 +3,7 @@ use uuid::Uuid;
 use std::str::FromStr;
 use crate::order::Order;
 use crate::order::order_type::OrderType;
+use crate::order::store::order_execution_type_store::get_orders_by_price;
 use redis::connection::Connection;
 use redis::types::{redis_hash, redis_list, redis_set, redis_sorted_set};
 
@@ -77,12 +78,24 @@ fn increment_user_open_order_balance<T: std::fmt::Display>(conn: &mut Connection
     }
 }
 
-fn update_sums<T: std::fmt::Display>(conn: &mut Connection, pair_id: &String, price: u128, amount: T) {   //redis constraint is i64
+fn update_sums<T: std::fmt::Display>(conn: &mut Connection, order_type: &OrderType, pair_id: &String, price: u128, amount: T) {   //redis constraint is i64
     let mut value = String::from(pair_id);
     value.push('-');
     value.push_str(price.to_string().as_str());
-    println!("incrmenting sums {}", amount.to_string());
-    redis_hash::hincrby(conn, "sums", value.as_str(), amount.to_string().as_str());
+
+    let sums_field = match order_type {
+        OrderType::BID => "bids-sums",
+        OrderType::ASK => "asks-sums",
+        OrderType::DELETE => panic!("Can't get sum of delete orders")
+    };
+
+    redis_hash::hincrby(conn, sums_field, value.as_str(), amount.to_string().as_str());
+
+    let sum_amount: u64 = redis_hash::hget(conn, sums_field, value.as_str()).unwrap();
+    if sum_amount < 1 {
+        redis_hash::hdel(conn, sums_field, value.as_str());
+    }
+
 }
 
 pub fn update_order_amount(conn: &mut Connection, order: &mut Order, amount_to_update: i128) {
@@ -108,7 +121,7 @@ pub fn update_order_amount(conn: &mut Connection, order: &mut Order, amount_to_u
         OrderType::ASK => increment_user_open_order_balance(conn, order, amount_to_update),
         OrderType::DELETE => panic!("Cannot update delete order amount type")
     }
-    update_sums(conn, &order.pair.uuid, order.price, amount_to_update);
+    update_sums(conn, &order.order_type, &order.pair.uuid, order.price, amount_to_update);
 }
 
 fn create_bid(conn: &mut Connection, order: &Order, list_entry: &ListEntry) {
@@ -167,7 +180,7 @@ pub fn create_order(conn: &mut Connection, order: &Order) {
         },
         _ => panic!("Trying to create Delete Order...")
     }
-    update_sums(conn, &order.pair.uuid, order.price, order.amount);
+    update_sums(conn, &order.order_type, &order.pair.uuid, order.price, order.amount);
 }
 
 //Delete an order
@@ -185,17 +198,36 @@ pub fn delete_order(conn: &mut Connection, order: &Order) {
 
     redis_list::lrem(conn, list_key.as_str(), 0, list_element_to_remove.serialize());
 
+    let length_remaining = redis_list::llen(conn, list_key.as_str()).unwrap();
+    if length_remaining < 1 {   //delete the list
+        redis::connection::del(conn, list_key.as_str());
+    }
+
     let mut list_key = String::from("users-orders-");
     list_key.push_str(order.user_id.as_str());
     redis_set::srem(conn, list_key.as_str(), order.uuid.to_string().as_str());
 
-    update_sums(conn, &order.pair.uuid, order.price, 0-order.amount as i128);
+    update_sums(conn, &order.order_type, &order.pair.uuid, order.price, 0-order.amount as i128);
 
     match order.order_type {
         OrderType::BID => increment_user_open_order_balance(conn, &order, 0 - ( order.amount * order.price ) as i128),
         OrderType::ASK => increment_user_open_order_balance(conn, &order, 0 - order.amount as i128),
         OrderType::DELETE => panic!("Cannot delete this order")
     }
+
+    let orders_remaining_at_this_price = get_orders_by_price(conn, &order.order_type, &order.pair, order.price as u64, order.price as u64);
+    if orders_remaining_at_this_price.len() < 1 {
+        let mut side_to_get: String = {
+            match &order.order_type {
+                OrderType::BID => String::from("bids-"),
+                OrderType::ASK => String::from("asks-"),
+                _ => panic!("Attempting to retrieve Delete orders by price...")
+            }
+        };
+        side_to_get.push_str(&order.pair.uuid.to_string());
+        redis::connection::del(conn, side_to_get.as_str());
+    }
+
 
 }
 
