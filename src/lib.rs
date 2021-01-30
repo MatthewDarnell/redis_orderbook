@@ -116,6 +116,7 @@ pub mod redis_pubsub {
     use order::order::order_execution_type::OrderExecutionType;
     use order::order::store::order_pair_store::get_pair_by_id;
     use redis::connection::Commands;
+    use order::order::store::order_store::delete_order;
 
     #[derive(Deserialize, Debug)]
     struct IncomingOrder {
@@ -152,7 +153,8 @@ pub mod redis_pubsub {
             });
             println!("Listening for incoming orders on channel <{}>", order_subscription_channel);
             println!("Publishing created orders on channel <{}>", created_order_publishing_channel);
-
+            println!("Submit Order For Processing:\tredis publish {} \"{{ \"user_id\": \"user_uuid\", \"order_type\": \"BID/ASK\", \"order_execution_type\": \"LIMIT/MARKET\", \"fill_or_kill\": \"true/false\", \"price\": u64, \"amount\": u64, \"pair\": \"pair_uuid\" }}\"", order_subscription_channel);
+            println!("Cancel An Open Order:\tredis publish {} \"{{\"order_type\": \"DELETE\", \"uuid\": \"order_uuid\"}}\"", order_subscription_channel);
             loop {
                 match pub_sub.get_message() {
                     Ok(msg) => {
@@ -164,22 +166,23 @@ pub mod redis_pubsub {
                                     break;
                                 }
 
-                                let incoming_order: Value = serde_json::from_str(payload.as_str()).unwrap();
+                                let mut incoming_order: Value = serde_json::from_str(payload.as_str()).unwrap();
 
+                                let mut ord_type: String = incoming_order["order_type"].as_str().unwrap().to_string();
 
-                                match incoming_order["order_type"].to_string().as_str() {
-                                    "DELETE" => {
-
-                                        println!("Got DELETE type order");
-                                        continue;
-                                    },
-                                    _ => {}
+                                if ord_type.trim() == "DELETE" {
+                                    let order_id: String = incoming_order["uuid"].as_str().unwrap().to_string();
+                                    match order::order::store::order_store::get_order_by_id(&mut conn, &uuid::Uuid::parse_str(order_id.as_str()).unwrap()) {
+                                        Some(o) => {
+                                            let order = order::order::Order::deserialize(&o);
+                                            delete_order(&mut conn, &order);
+                                        },
+                                        None => panic!("No such order {}", order_id.as_str())
+                                    }
+                                    continue;
                                 }
 
-
-
                                 let incoming_order: IncomingOrder = serde_json::from_value(incoming_order).unwrap();
-
 
                                 let order_type = match incoming_order.order_type.to_string().to_ascii_uppercase().as_str() {
                                     "BID" => OrderType::BID,
