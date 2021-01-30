@@ -100,8 +100,7 @@ pub fn place_trade(conn: &mut Connection, publish_completed_trades: bool, o: &mu
         match order_executor.execute_order(o, &existing_order).unwrap() {
             OrderExecutorResult::PARTIALLYCLEARSEXISTING(amount, price, timestamp) => {
                 o.amount = 0;
-                trade_filled_amount = o.amount;
-                println!("partially clears existing {}", amount);
+                trade_filled_amount = amount;
                 order_store::update_order_amount(conn, &mut existing_order, 0-amount as i128);
             },
             OrderExecutorResult::BOTHORDERSFILLEDEXACTLY(amount, price, timestamp) => {
@@ -110,7 +109,6 @@ pub fn place_trade(conn: &mut Connection, publish_completed_trades: bool, o: &mu
                 delete_order(conn, &existing_order);
             },
             OrderExecutorResult::ANNIHILATESEXISTING(amount, price, timestamp) => {
-                println!("order annihilated, new amount: {} - {}", amount, o.amount - amount);
                 o.amount -= amount;
                 trade_filled_amount = amount;
                 delete_order(conn, &existing_order);

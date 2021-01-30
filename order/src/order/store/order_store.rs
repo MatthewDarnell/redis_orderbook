@@ -104,20 +104,21 @@ pub fn update_order_amount(conn: &mut Connection, order: &mut Order, amount_to_u
         match amount_to_update.checked_abs() {
             Some(abs) => {
                 let abs = abs as u128;
-                order.amount.wrapping_sub(abs);
+                order.amount = order.amount.wrapping_sub(abs);
             },
             None => panic!("Could not update order by amount {}", amount_to_update)
         }
     } else {
-        order.amount.wrapping_add(amount_to_update as u128);
+        order.amount = order.amount.wrapping_add(amount_to_update as u128);
     }
 
     let new_total_cost = order.amount * order.price;
     let order: &Order = order;
     let serialized = order.serialize();
     redis_hash::hset(conn, "orders", &order.uuid.to_string(), &serialized);
+    let subtracted: i128 = new_total_cost as i128 - current_total_cost as i128;
     match order.order_type {
-        OrderType::BID => increment_user_open_order_balance(conn, order, new_total_cost - current_total_cost),
+        OrderType::BID => increment_user_open_order_balance(conn, order, subtracted),
         OrderType::ASK => increment_user_open_order_balance(conn, order, amount_to_update),
         OrderType::DELETE => panic!("Cannot update delete order amount type")
     }
@@ -214,21 +215,6 @@ pub fn delete_order(conn: &mut Connection, order: &Order) {
         OrderType::ASK => increment_user_open_order_balance(conn, &order, 0 - order.amount as i128),
         OrderType::DELETE => panic!("Cannot delete this order")
     }
-
-    let orders_remaining_at_this_price = get_orders_by_price(conn, &order.order_type, &order.pair, order.price as u64, order.price as u64);
-    if orders_remaining_at_this_price.len() < 1 {
-        let mut side_to_get: String = {
-            match &order.order_type {
-                OrderType::BID => String::from("bids-"),
-                OrderType::ASK => String::from("asks-"),
-                _ => panic!("Attempting to retrieve Delete orders by price...")
-            }
-        };
-        side_to_get.push_str(&order.pair.uuid.to_string());
-        redis::connection::del(conn, side_to_get.as_str());
-    }
-
-
 }
 
 pub fn get_orders_by_user_id(conn: &mut Connection, user_id: &str) -> Option<Vec<Order>> {

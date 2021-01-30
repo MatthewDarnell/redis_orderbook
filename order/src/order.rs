@@ -56,7 +56,7 @@ impl Order {
         serialized
     }
     pub fn deserialize(json: &String) -> Self {
-        let deserialized: Order = serde_json::from_str(json).unwrap();
+        let deserialized: Order = serde_json::from_str(json).unwrap_or_else(|_| panic!("Unable to deserialize order"));
         deserialized
     }
 }

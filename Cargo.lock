@@ -157,6 +157,8 @@ version = "0.1.0"
 dependencies = [
  "order",
  "redis 0.1.0",
+ "serde",
+ "serde_json",
  "trade",
  "uuid",
 ]

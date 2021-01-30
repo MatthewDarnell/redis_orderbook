@@ -104,9 +104,127 @@ pub fn get_all_pairs(conn: &mut Connection) -> Result<String, String> {
 
 
 pub mod redis_pubsub {
+    use std::thread;
+    use std::time::Duration;
     use redis::connection;
+    use super::init;
+
+
+    use serde::Deserialize;
+    use serde_json::Value;
+    use order::order::order_type::OrderType;
+    use order::order::order_execution_type::OrderExecutionType;
+    use order::order::store::order_pair_store::get_pair_by_id;
+    use std::net::Incoming;
+
+    #[derive(Deserialize, Debug)]
+    struct IncomingOrder {
+        user_id: String,
+        order_type: String,
+        order_execution_type: String,
+        fill_or_kill: bool,
+        price: u64,
+        amount: u64,
+        pair: String
+    }
+
+    impl IncomingOrder {
+        pub fn deserialize(json: &String) -> Self {
+            let deserialized: IncomingOrder = serde_json::from_str(json).unwrap_or_else(|_| panic!("Unable to deserialize IncomingOrder"));
+            deserialized
+        }
+    }
 
     pub fn init_pubsub(conn: &mut connection::Connection) -> connection::PubSub {
         conn.as_pubsub()
     }
+
+    pub fn init_listening_for_orders(order_subscription_channel: &'static str) {
+        let handle = thread::spawn(move || {
+
+            let mut conn = init("").unwrap();
+            let mut pubsub = init("").unwrap();
+            let mut pub_sub: connection::PubSub = pubsub.as_pubsub();
+
+            println!("Starting Redis Order Subscriber Thread");
+            pub_sub.subscribe(order_subscription_channel).unwrap_or_else(|_| {
+                println!("Failed to subscribe to channel {}. Shutting down Thread", order_subscription_channel);
+            });
+            println!("Listening for incoming orders on channel <{}>", order_subscription_channel);
+
+            loop {
+                match pub_sub.get_message() {
+                    Ok(msg) => {
+                        match msg.get_payload() {
+                            Ok(payload) => {
+                                let payload: String = payload;
+                                if payload.as_str() == "quit" {
+                                    println!("Received Quit notification, shutting down");
+                                    break;
+                                }
+
+                                let incoming_order: Value = serde_json::from_str(payload.as_str()).unwrap();
+
+                                let incoming_order: IncomingOrder = serde_json::from_value(incoming_order).unwrap();
+
+
+                                let order_type = match incoming_order.order_type.to_string().to_ascii_uppercase().as_str() {
+                                    "BID" => OrderType::BID,
+                                    "ASK" => OrderType::ASK,
+                                    _ => {
+                                        println!("Malformed Order! No type {}", incoming_order.order_type);
+                                        continue;
+                                    },
+                                };
+
+
+                                let order_execution_type = match incoming_order.order_execution_type.to_string().to_ascii_uppercase().as_str() {
+                                    "LIMIT" => OrderExecutionType::LIMIT,
+                                    "MARKET" => OrderExecutionType::MARKET,
+                                    _ => {
+                                        println!("Malformed Order! No type {}", incoming_order.order_execution_type);
+                                        continue;
+                                    },
+                                };
+
+                                let pair = uuid::Uuid::parse_str(incoming_order.pair.to_string().as_str()).unwrap();
+                                let pair = match get_pair_by_id(&mut  conn, pair) {
+                                    Some(pair) => pair,
+                                    None => {
+                                        println!("Invalid Pair {}", pair);
+                                        continue;
+                                    }
+                                };
+
+                                let user_id: String = incoming_order.user_id;
+                                let fill_or_kill: bool = incoming_order.fill_or_kill;
+                                let price: u64 = incoming_order.price;
+                                let amount: u64 = incoming_order.amount;
+
+                                let mut ord = order::order::Order::new(
+                                    user_id.as_str(),
+                                    order_type,
+                                    order_execution_type,
+                                    fill_or_kill,
+                                    price as u128,
+                                    amount as u128,
+                                    &pair
+                                );
+
+                                trade::trade::place_trade(&mut conn, true, &mut ord);
+                            },
+                            Err(e) => println!("Failed to read message payload! {}", e)
+                        }
+                    },
+                    Err(e) => println!("Failed to read message! {}", e)
+                }
+                thread::sleep(Duration::from_millis(100));
+            }
+        });
+        handle.join().unwrap();
+        println!("Stopping Redis Order Subscriber Thread");
+    }
+
+
+
 }
