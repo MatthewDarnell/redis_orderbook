@@ -31,34 +31,35 @@ pub fn get_sum_of_orders_for_price_point(conn: &mut Connection, order_type: &Ord
 }
 
 pub fn get_matching_market_orders_for_execution(conn: &mut Connection, order: &Order) -> Vec<Order> {
-    let mut index: isize = -1;
+
     let mut all_orders: Vec<Order> = Vec::new();
 
     let mut order_amount_count: u128 = 0;
 
-    while order_amount_count < order.amount {
-        index = index + 1;
-        let mut orders = match &order.order_type {
-            OrderType::ASK => {
-                get_orders_by_price_index(conn, &OrderType::BID, &order.pair, index, index)
-            },
-            OrderType::BID => {
-                get_orders_by_price_index(conn, &OrderType::ASK, &order.pair, index, index)
-            },
-            _ => panic!("Cannot get Delete type orders from orderbook")
-        };
+    let mut existing_orders = match &order.order_type {
+        OrderType::ASK => {
+            get_orders_by_price_index(conn, &OrderType::BID, &order.pair, -1, 0)
+        },
+        OrderType::BID => {
+            get_orders_by_price_index(conn, &OrderType::ASK, &order.pair, 0, -1)
+        },
+        _ => panic!("Cannot get Delete type orders from orderbook")
+    };
 
-        if orders.is_empty() {
+    if existing_orders.is_empty() {
+        return all_orders;
+    }
+
+    for mut ord in existing_orders {
+        order_amount_count += ord.amount;
+
+        all_orders.push(ord);
+        if order_amount_count >= order.amount {
             break;
         }
-
-        for order in &orders {
-            order_amount_count += order.amount;
-        }
-
-        all_orders.append(&mut orders);
     }
-        all_orders
+
+    all_orders
 }
 
 pub fn get_matching_limit_orders_for_execution(conn: &mut Connection, order: &Order) -> Vec<Order> {

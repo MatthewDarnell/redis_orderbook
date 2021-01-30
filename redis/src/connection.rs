@@ -1,5 +1,5 @@
 extern crate redis;
-use redis::Commands;
+pub use redis::Commands;
 pub use redis::FromRedisValue;
 pub use self::redis::RedisResult;
 pub use redis::ToRedisArgs;

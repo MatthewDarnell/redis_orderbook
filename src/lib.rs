@@ -115,7 +115,7 @@ pub mod redis_pubsub {
     use order::order::order_type::OrderType;
     use order::order::order_execution_type::OrderExecutionType;
     use order::order::store::order_pair_store::get_pair_by_id;
-    use std::net::Incoming;
+    use redis::connection::Commands;
 
     #[derive(Deserialize, Debug)]
     struct IncomingOrder {
@@ -139,7 +139,7 @@ pub mod redis_pubsub {
         conn.as_pubsub()
     }
 
-    pub fn init_listening_for_orders(order_subscription_channel: &'static str) {
+    pub fn init_listening_for_orders(order_subscription_channel: &'static str, created_order_publishing_channel: &'static str) {
         let handle = thread::spawn(move || {
 
             let mut conn = init("").unwrap();
@@ -151,6 +151,7 @@ pub mod redis_pubsub {
                 println!("Failed to subscribe to channel {}. Shutting down Thread", order_subscription_channel);
             });
             println!("Listening for incoming orders on channel <{}>", order_subscription_channel);
+            println!("Publishing created orders on channel <{}>", created_order_publishing_channel);
 
             loop {
                 match pub_sub.get_message() {
@@ -164,6 +165,18 @@ pub mod redis_pubsub {
                                 }
 
                                 let incoming_order: Value = serde_json::from_str(payload.as_str()).unwrap();
+
+
+                                match incoming_order["order_type"].to_string().as_str() {
+                                    "DELETE" => {
+
+                                        println!("Got DELETE type order");
+                                        continue;
+                                    },
+                                    _ => {}
+                                }
+
+
 
                                 let incoming_order: IncomingOrder = serde_json::from_value(incoming_order).unwrap();
 
@@ -211,7 +224,18 @@ pub mod redis_pubsub {
                                     &pair
                                 );
 
-                                trade::trade::place_trade(&mut conn, true, &mut ord);
+                                match trade::trade::place_trade(&mut conn, true, &mut ord) {
+                                    Some(uuid) => {
+                                        let mut json_string = String::from("{\"user_id\": \"");
+                                        json_string.push_str(user_id.as_str());
+                                        json_string.push_str("\", \"uuid\": \"");
+                                        json_string.push_str(uuid.as_str());
+                                        json_string.push_str("\"}");
+
+                                        redis::types::redis_pubsub::publish(&mut conn, created_order_publishing_channel, json_string.as_str());
+                                    },
+                                    None => {}
+                                }
                             },
                             Err(e) => println!("Failed to read message payload! {}", e)
                         }

@@ -55,7 +55,7 @@ impl TradePlaced {
     }
 }
 
-pub fn place_trade(conn: &mut Connection, publish_completed_trades: bool, o: &mut Order) {
+pub fn place_trade(conn: &mut Connection, publish_completed_trades: bool, o: &mut Order) -> Option<String> {
     let side_to_get = match o.order_type {
         OrderType::BID => OrderType::ASK,
         OrderType::ASK => OrderType::BID,
@@ -72,6 +72,7 @@ pub fn place_trade(conn: &mut Connection, publish_completed_trades: bool, o: &mu
         OrderExecutionType::LIMIT => orderbook::get_matching_limit_orders_for_execution(conn, o)
     };
 
+    let mut return_uuid: bool = false;  //return the uuid if this order is created
 
     loop {
         if o.amount <= 0 {
@@ -83,6 +84,7 @@ pub fn place_trade(conn: &mut Connection, publish_completed_trades: bool, o: &mu
             match o.order_execution_type {
                 OrderExecutionType::LIMIT => {
                     create_order(conn, o);
+                    return_uuid = true;
                 },
                 _ => {} //MARKET orders are dropped if they cannot be filled
             }
@@ -157,7 +159,10 @@ pub fn place_trade(conn: &mut Connection, publish_completed_trades: bool, o: &mu
         }
 
     }
-
-
+    if return_uuid {
+        Some(o.uuid.to_string())
+    } else {
+        None
+    }
 }
 
