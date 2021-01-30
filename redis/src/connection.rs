@@ -3,7 +3,9 @@ use redis::Commands;
 pub use redis::FromRedisValue;
 pub use self::redis::RedisResult;
 pub use redis::ToRedisArgs;
+pub use redis::RedisError;
 pub use redis::Connection;
+pub use redis::PubSub;
 const REDIS_IP: &str = "redis://127.0.0.1:6379";
 
 //@ip_addr: Pass <None> to use default <redis://127.0.0.1:6379>

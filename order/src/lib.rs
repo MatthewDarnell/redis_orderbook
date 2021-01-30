@@ -1,5 +1,6 @@
 use redis::connection::Connection;
 use crate::order::orderbook::get_sum_of_orders_for_price_point;
+use crate::order::order_type::OrderType;
 
 pub mod order;
 
@@ -50,50 +51,58 @@ pub fn get_orderbook(conn: &mut Connection, pair_id: String, depth: u32) -> Resu
 
     let mut json = String::from("{\"asks\": [");
 
-
-    for (pair_id, price) in &order_asks_q {
-        let p: u128 = price.parse().unwrap();
-        let sum = get_sum_of_orders_for_price_point(conn, &pair_id, p);
-        println!("Checking Pair: {} and price {} -- {}", &pair_id, &price, &sum);
-
-        if sum == "0" {
-            continue;
+    if order_asks_q.len() < 1 {
+        json.push_str("], \"bids\": [");
+    } else {
+        for (pair_id, price) in &order_asks_q {
+            let p: u128 = price.parse().unwrap();
+            let sum = get_sum_of_orders_for_price_point(conn, &OrderType::ASK, &pair_id, p);
+            if sum == "0" {
+                continue;
+            }
+            json.push_str("{\"price\": ");
+            json.push_str(price.as_str());
+            json.push_str(", \"sum\": ");
+            json.push_str(sum.as_str());
+            json.push_str("}, ");
         }
-        json.push_str("{\"price\": ");
-        json.push_str(price.as_str());
-        json.push_str(", \"sum\": ");
-        json.push_str(sum.as_str());
-        json.push_str("}, ");
-    }
-    if order_asks_q.len() > 0 {
-        json.pop();
-        json.pop();
-    }
-
-    json.push_str("], \"bids\": [");
-
-    for (pair_id, price) in &order_bids_q {
-
-        let p: u128 = price.parse().unwrap();
-        let sum = get_sum_of_orders_for_price_point(conn, &pair_id, p);
-        println!("Checking Pair: {} and price {} -- {}", &pair_id, &price, &sum);
-
-        if sum == "0" {
-            continue;
+        if order_asks_q.len() > 0 {
+            json.pop();
+            json.pop();
         }
-        json.push_str("{\"price\": \"");
-        json.push_str(price.as_str());
-        json.push_str("\", \"sum\": \"");
-        json.push_str(sum.as_str());
-        json.push_str("\"}, ");
+
+        json.push_str("], \"bids\": [");
     }
 
-    if order_bids_q.len() > 0 {
-        json.pop();
-        json.pop();
+
+
+
+    if order_bids_q.len() < 1 {
+        json.push_str("]}");
+    } else {
+        for (pair_id, price) in &order_bids_q {
+
+            let p: u128 = price.parse().unwrap();
+            let sum = get_sum_of_orders_for_price_point(conn, &OrderType::BID, &pair_id, p);
+
+            if sum == "0" {
+                continue;
+            }
+            json.push_str("{\"price\": \"");
+            json.push_str(price.as_str());
+            json.push_str("\", \"sum\": \"");
+            json.push_str(sum.as_str());
+            json.push_str("\"}, ");
+        }
+
+        if order_bids_q.len() > 0 {
+            json.pop();
+            json.pop();
+        }
+
+        json.push_str("]}");
     }
 
-    json.push_str("]}");
 
 
 
