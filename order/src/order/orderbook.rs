@@ -6,7 +6,18 @@ use redis::types::{redis_hash};
 use crate::order::store::order_execution_type_store::{get_orders_by_price, get_orders_by_price_index};
 
 
-
+pub fn get_user_open_order_sum(conn: &mut Connection, user_id: &str, ticker: &str) -> String {
+    let mut field = String::from(user_id);
+    field.push('-');
+    field.push_str(ticker);
+    match redis_hash::hget(conn, "user_open_order_sums", field.as_str()) {
+        Ok(sums) => {
+            let sums: String = sums;
+            sums
+        },
+        Err(e) => String::from("0")
+    }
+}
 
 
 pub fn get_sum_of_orders_for_price_point(conn: &mut Connection, order_type: &OrderType, pair: &String, price: u128) -> String {

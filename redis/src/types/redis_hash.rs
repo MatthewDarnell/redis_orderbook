@@ -11,6 +11,10 @@ pub fn hget<'a, 'b, RV: FromRedisValue> (conn: &'a mut redis::Connection, key: &
     conn.hget(key, field)
 }
 
+pub fn hgetall<'a, RV: FromRedisValue> (conn: &'a mut redis::Connection, key: &'a str) -> redis::RedisResult<RV> {
+    conn.hgetall(key)
+}
+
 pub fn hmget<T: ToRedisArgs, RV: FromRedisValue> (conn: &mut redis::Connection, key: &str, field:  T) -> redis::RedisResult<RV> {
     conn.hget(key, field)
 }

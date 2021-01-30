@@ -80,6 +80,10 @@ pub fn place_trade(
     Ok("ok".to_string())
 }
 
+pub fn get_user_open_order_sum(conn: &mut Connection, user_id: &str) {
+    get_user_open_order_sum(conn, user_id)
+}
+
 pub fn create_pair(conn: &mut Connection, price_ticker: &str, ref_ticker: &str) {
     let pair = Pair::new(price_ticker, ref_ticker, uuid::Uuid::new_v4());
     add_new_pair(conn, &pair)

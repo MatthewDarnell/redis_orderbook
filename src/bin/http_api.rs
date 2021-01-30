@@ -5,6 +5,7 @@ use order::order::order_pair::Pair;
 use std::collections::HashMap;
 extern crate redis;
 use redis::connection;
+use order::order::orderbook::get_user_open_order_sum;
 
 #[tokio::main]
 async fn main() {
@@ -45,6 +46,19 @@ async fn main() {
         }
     });
 
+
+
+    let order_sums = warp::path!("user_order_sums" / String / String).map(|user_id: String, ticker: String| {
+        match connection::get_connection(None) {
+            Ok(mut conn) => {
+                let sum: u128 = get_user_open_order_sum(&mut conn, user_id.as_str(), ticker.as_str()).parse().unwrap();
+                format!("{}", sum)
+            },
+            Err(_) => format!("Unable to access redis server. Is it running?")
+        }
+    });
+
+
     // get /example1?key=value
     // demonstrates an optional parameter.
     let add_pair = warp::get()
@@ -82,7 +96,7 @@ async fn main() {
         );
 
 
-    let routes = warp::get().and(pairs.or(orderbook).or(add_pair));
+    let routes = warp::get().and(pairs.or(orderbook).or(add_pair).or(order_sums));
 
     println!("Redis Orderbook HTTP Server listening on port 3030");
     warp::serve(routes)
