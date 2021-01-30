@@ -47,13 +47,9 @@ impl Executor for OrderExecutor {
                         Ok(OrderExecutorResult::ANNIHILATESEXISTING(existing_order.amount, existing_order.price, n.as_secs()))
                     },
                     Ordering::Less => { //New order Partially clears existing order
-                        println!(" {} LESS THAN {}", &new_order.amount, &existing_order.amount);
-
                         Ok(OrderExecutorResult::PARTIALLYCLEARSEXISTING(new_order.amount, existing_order.price, n.as_secs()))
                     },
                     Ordering::Equal => { //Exactly filled, delete both orders
-                        println!(" {} EQUAL TO {}", &new_order.amount, &existing_order.amount);
-
                         Ok(OrderExecutorResult::BOTHORDERSFILLEDEXACTLY(existing_order.amount, existing_order.price, n.as_secs()))
                     },
                 }

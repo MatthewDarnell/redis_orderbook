@@ -4,7 +4,6 @@ use crate::order::order_type::OrderType;
 
 pub mod order;
 
-
 pub fn get_orderbook(conn: &mut Connection, pair_id: String, depth: u32) -> Result<String, String> {
     let pair_id = match uuid::Uuid::parse_str(pair_id.as_str()) {
         Ok(v) => v,
@@ -73,8 +72,6 @@ pub fn get_orderbook(conn: &mut Connection, pair_id: String, depth: u32) -> Resu
 
         json.push_str("], \"bids\": [");
     }
-
-
 
 
     if order_bids_q.len() < 1 {

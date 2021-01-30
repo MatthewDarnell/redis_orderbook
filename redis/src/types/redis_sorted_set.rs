@@ -11,6 +11,10 @@ pub fn zrange<T: ToRedisArgs, RV: FromRedisValue> (conn: &mut redis::Connection,
     conn.zrange(key, start, stop)
 }
 
+pub fn zrem<T: ToRedisArgs>(conn: &mut redis::Connection, key: &str, value: T) -> redis::RedisResult<()> {
+    conn.zrem(key, value)
+}
+
 pub fn zrevrange<T: ToRedisArgs, RV: FromRedisValue> (conn: &mut redis::Connection, key: T, stop: isize, start: isize) -> redis::RedisResult<Vec<RV>> {
     conn.zrevrange(key, stop, start)
 }

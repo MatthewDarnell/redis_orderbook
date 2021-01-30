@@ -202,6 +202,15 @@ pub fn delete_order(conn: &mut Connection, order: &Order) {
     let length_remaining = redis_list::llen(conn, list_key.as_str()).unwrap();
     if length_remaining < 1 {   //delete the list
         redis::connection::del(conn, list_key.as_str());
+        //delete this list from the sorted set
+        let mut set_key = match order.order_type {
+            OrderType::ASK => String::from("asks-"),
+            OrderType::BID => String::from("bids-"),
+            _ => panic!("Cannot delete this order")
+        };
+        set_key.push_str(order.pair.uuid.as_str());
+
+        redis_sorted_set::zrem(conn, set_key.as_str(), list_key.as_str());
     }
 
     let mut list_key = String::from("users-orders-");

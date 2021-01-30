@@ -6,6 +6,9 @@ use redis::types::{redis_hash};
 use crate::order::store::order_execution_type_store::{get_orders_by_price, get_orders_by_price_index};
 
 
+
+
+
 pub fn get_sum_of_orders_for_price_point(conn: &mut Connection, order_type: &OrderType, pair: &String, price: u128) -> String {
     let mut field: String = String::from(pair);
     field.push('-');
