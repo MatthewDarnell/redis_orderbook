@@ -251,6 +251,32 @@ pub fn get_orders_by_user_id(conn: &mut Connection, user_id: &str) -> Option<Vec
     }
 }
 
+pub fn get_orders_by_user_id_and_pair_id(conn: &mut Connection, user_id: &str, pair_id: &str) -> Option<Vec<Order>> {
+    let mut key = String::from("users-orders-");
+    key.push_str(user_id);
+    match redis_set::smembers(conn, key.as_str()) {
+        Ok(res) => {
+            let res: Vec<String> = res;
+            let mut orders: Vec<Order> = Vec::new();
+            for r in res {
+                let id = uuid::Uuid::from_str(r.as_str()).unwrap();
+                match get_order_by_id(conn, &id) {
+                    Some(order_string) => {
+                        let retrieved_order: Order = Order::deserialize(&order_string);
+                        orders.push(retrieved_order);
+                    },
+                    None => {
+                        panic!("Could not retrieve order {}", r.as_str());
+                    }
+                }
+            }
+            let orders: Vec<Order> = orders.into_iter().filter(|x| x.pair.uuid == pair_id).collect();
+            Some(orders)
+        },
+        Err(e) => panic!("Error getting orders by user id {} -- {}", user_id, e)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

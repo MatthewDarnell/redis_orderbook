@@ -46,6 +46,32 @@ async fn main() {
         }
     });
 
+    let user_open_orders = warp::path!("user_open_orders" / String / String).map(|user_id: String, pair_id: String| {
+        match uuid::Uuid::parse_str(&pair_id) {
+            Ok(uuid) => {
+                match connection::get_connection(None) {
+                    Ok(mut conn) => {
+                        match order::order::store::order_pair_store::get_pair_by_id(&mut conn, uuid) {
+                            Some(pair) => {
+                                match order::order::store::order_store::get_orders_by_user_id_and_pair_id(&mut conn, user_id.as_str(), pair_id.as_str()) {
+                                    Some(order_list) => {
+                                        match serde_json::to_string_pretty(&order_list) {
+                                            Ok(result) => format!("{}", result.as_str()),
+                                            Err(e) => format!("{}", e)
+                                        }
+                                    },
+                                    None => format!("[]")
+                                }
+                            },
+                            None => format!("{} is not a known pair", pair_id)
+                        }
+                    },
+                    Err(_) => format!("Unable to access redis server. Is it running?")
+                }
+            },
+            Err(_) => format!("Invalid Pair Uuid {}", pair_id)
+        }
+    });
 
 
     let order_sums = warp::path!("user_order_sums" / String / String).map(|user_id: String, ticker: String| {
@@ -57,6 +83,7 @@ async fn main() {
             Err(_) => format!("Unable to access redis server. Is it running?")
         }
     });
+
 
 
     // get /example1?key=value
@@ -95,8 +122,16 @@ async fn main() {
         }
         );
 
+    let home = warp::get().map(|| format!("API:\n\
+    /all_pairs\n\
+    /add_pair?price_ticker=<price_ticker>&ref_ticker=<ref_ticker>\n\
+    /user_open_orders/<user_id>/<pair_id>\n\
+    /orderbook/<pair_id>\n\
+    /user_order_sums/<user_id>/<ticker>"
+    ));
 
-    let routes = warp::get().and(pairs.or(orderbook).or(add_pair).or(order_sums));
+
+    let routes = warp::get().and(pairs.or(orderbook).or(user_open_orders).or(add_pair).or(order_sums).or(home));
 
     println!("Redis Orderbook HTTP Server listening on port 3030");
     warp::serve(routes)
