@@ -1,3 +1,4 @@
+use std::env;
 use warp::Filter;
 extern crate uuid;
 use order;
@@ -6,6 +7,8 @@ use std::collections::HashMap;
 extern crate redis;
 use redis::connection;
 use order::order::orderbook::get_user_open_order_sum;
+use std::net::{Ipv4Addr, IpAddr};
+use std::str::FromStr;
 
 #[tokio::main]
 async fn main() {
@@ -133,8 +136,28 @@ async fn main() {
 
     let routes = warp::get().and(pairs.or(orderbook).or(user_open_orders).or(add_pair).or(order_sums).or(home));
 
-    println!("Redis Orderbook HTTP Server listening on port 3030");
+
+    let mut host = String::from("127.0.0.1");
+    let mut port: u16 = 3000;
+    match env::var("REDIS_ORDERBOOK_HTTP_API_HOST") {
+        Ok(hostname) => {
+            host = hostname;
+        },
+        Err(_) => {
+        }
+    }
+
+    match env::var("REDIS_ORDERBOOK_HTTP_API_PORT") {
+        Ok(env_var_port) => {
+            port = env_var_port.parse().unwrap();
+        },
+        Err(_) => {
+        }
+    }
+
+    println!("Redis Orderbook HTTP API Server listening at: <{}:{}>", host.as_str(), port);
+    let address: IpAddr = IpAddr::from_str(host.as_str()).expect("Unable to parse as Ip Address");
     warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030))
+        .run((address, port))
         .await;
 }

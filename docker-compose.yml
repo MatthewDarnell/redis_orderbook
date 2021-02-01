@@ -25,10 +25,12 @@ services:
     links:
       - "redis"
     ports:
-    - "3030:3030"
+    - "3000:3000"
     environment:
       - REDIS_IP=redis://redis:6379
       - BIN_NAME=http_api
+      - REDIS_ORDERBOOK_HTTP_API_HOST=0.0.0.0
+      - REDIS_ORDERBOOK_HTTP_API_PORT=3000
   redis_created_orders_listener:
     build: .
     restart: always
