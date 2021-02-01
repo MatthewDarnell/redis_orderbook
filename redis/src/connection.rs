@@ -1,3 +1,4 @@
+use std::env;
 extern crate redis;
 pub use redis::Commands;
 pub use redis::FromRedisValue;
@@ -15,8 +16,16 @@ pub fn get_connection(ip_addr: Option<&str>) -> Result<redis::Connection, redis:
         println!("Opening Redis Connection at: <{}>", ip);
         client = redis::Client::open(ip)?;
     } else {
-        println!("Opening Redis Connection at default URL: <{}>", REDIS_IP);
-        client = redis::Client::open(REDIS_IP)?;
+        match env::var("REDIS_IP") {
+            Ok(ip) => {
+                println!("Opening Redis Connection found in env var at URL: <{}>", ip.as_str());
+                client = redis::Client::open(ip.as_str())?;
+            },
+            Err(_) => {
+                println!("Opening Redis Connection at default URL: <{}>", REDIS_IP);
+                client = redis::Client::open(REDIS_IP)?;
+            }
+        }
     }
     client.get_connection()
 }

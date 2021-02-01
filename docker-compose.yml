@@ -1,0 +1,54 @@
+version: "3"
+
+services:
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - "6379:6379"
+    volumes:
+      - 'redis_data:/var/lib/redis'
+  pubsub_listener:
+    build: .
+    restart: always
+    depends_on:
+      - 'redis'
+    links:
+      - "redis"
+    environment:
+      - REDIS_IP=redis://redis:6379
+      - BIN_NAME=redis_pubsub_listener
+  http_api:
+    build: .
+    restart: always
+    depends_on:
+      - 'redis'
+    links:
+      - "redis"
+    ports:
+    - "3030:3030"
+    environment:
+      - REDIS_IP=redis://redis:6379
+      - BIN_NAME=http_api
+  redis_created_orders_listener:
+    build: .
+    restart: always
+    depends_on:
+      - 'redis'
+    links:
+      - "redis"
+    environment:
+      - REDIS_IP=redis://redis:6379
+      - BIN_NAME=redis_created_orders_listener
+  redis_trades_completed_listener:
+    build: .
+    restart: always
+    depends_on:
+      - 'redis'
+    links:
+      - "redis"
+    environment:
+      - REDIS_IP=redis://redis:6379
+      - BIN_NAME=redis_trades_completed_listener
+volumes:
+  redis_data:
+    driver: local

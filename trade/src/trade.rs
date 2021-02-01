@@ -79,6 +79,24 @@ pub fn place_trade(conn: &mut Connection, publish_completed_trades: bool, o: &mu
             break;
         }
 
+        if o.fill_or_kill {
+            println!("Got fill or kill order");
+            let mut sum_of_existing_orders: u128 = 0;
+            for existing_order in &existing_orders {
+                if order_executor.can_execute_order(o, existing_order) {
+                    sum_of_existing_orders += existing_order.amount;
+                    if sum_of_existing_orders >= o.amount {
+                        break;
+                    }
+                }
+            }
+            println!("Sum of Existing Orders: {}, need at least {}", sum_of_existing_orders, o.amount);
+            if o.amount > sum_of_existing_orders {
+                println!("fill or kill not met, refusing to execute trade");
+                break;
+            }
+        }
+
         if existing_orders.is_empty() {
             //place_order of new order remainder if last remaining existing order
             match o.order_execution_type {

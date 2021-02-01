@@ -14,9 +14,9 @@ warp = "0.3"
 uuid = {version = "0.8.2", features = ["serde", "v4"] }
 
 
-order = { path = "./order" }
-redis = { path = "./redis" }
-trade = { path = "./trade" }
+order = { path = "order" }
+redis = { path = "redis" }
+trade = { path = "trade" }
 
 
 [dev-dependencies]
