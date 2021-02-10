@@ -33,3 +33,10 @@ pub fn get_connection(ip_addr: Option<&str>) -> Result<redis::Connection, redis:
 pub fn del(conn: &mut redis::Connection, key: &str) -> RedisResult<()> {
     conn.del(key)
 }
+pub fn flushall(conn: &mut redis::Connection) {
+    let all_keys: Vec<String> = conn.keys("*").unwrap();
+    for key in &all_keys {
+        println!("Deleting Key {}", key);
+        del(conn, key);
+    }
+}

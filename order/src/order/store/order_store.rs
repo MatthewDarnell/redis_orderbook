@@ -316,15 +316,11 @@ mod tests {
                     assert_eq!(1, 2);
                 }
             }
-/*
 
-            match get_open_orders_for_ticker(&mut conn, "test_user_id", "btc") {
-                Some(value) => assert_eq!(value, 1000000),
-                None => assert_eq!(1,2)
-            }
-*/
             order_execution_type_store::get_orders_by_price(&mut conn, &OrderType::BID, pair, 0, 1000000000);
 
+
+            redis::connection::flushall(&mut conn);
 
         }
 

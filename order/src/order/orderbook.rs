@@ -94,23 +94,7 @@ mod tests {
     use super::*;
     use crate::order::order_type::OrderType;
     use crate::order::order_execution_type::OrderExecutionType;
-
-    fn set_up_test() {
-        let pair = &order_pair::Pair::new("btc", "usd", uuid::Uuid::new_v4());
-
-        Order::new("user1", OrderType::BID, OrderExecutionType::LIMIT, false, 1, 10, pair);
-        Order::new("user2", OrderType::BID, OrderExecutionType::LIMIT, true, 2, 10, pair);
-        Order::new("user3", OrderType::BID, OrderExecutionType::LIMIT, true, 3, 10, pair);
-
-        Order::new("user4", OrderType::ASK, OrderExecutionType::LIMIT, false, 3, 10, pair);
-        Order::new("user5", OrderType::ASK, OrderExecutionType::LIMIT, true, 2, 10, pair);
-        Order::new("user6", OrderType::ASK, OrderExecutionType::MARKET, true, 1, 10, pair);
-
-    }
-    fn clean_up_test() {
-
-    }
-
+    use crate::order::order_pair;
 
     #[test]
     fn test_get_order_by_id() {
@@ -141,5 +125,6 @@ mod tests {
         assert_eq!(deserialized.pair.uuid, o.pair.uuid);
 
         assert_eq!(1, 1);
+
     }
 }

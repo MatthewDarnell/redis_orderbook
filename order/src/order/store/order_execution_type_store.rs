@@ -2,9 +2,11 @@ extern crate redis;
 use std::cmp::Ordering;
 use crate::order::Order;
 use crate::order::order_type::OrderType;
+use crate::order::order_execution_type::OrderExecutionType;
 use redis::connection::Connection;
 use redis::types::{redis_hash, redis_list};
 use self::redis::connection::ToRedisArgs;
+use self::redis::connection;
 use crate::order::order_pair::Pair;
 use crate::order::store::order_store;
 use crate::order::store::order_type_store;
@@ -81,8 +83,6 @@ pub fn get_orders_by_price_index(conn: &mut Connection, order_type: &OrderType, 
     get_orders_from_uuid_list(conn, &orders)
 }
 
-
-
 pub fn get_orders_by_price<T: ToRedisArgs, V: ToRedisArgs>(conn: &mut Connection, order_type: &OrderType, pair: &Pair, min: T, max: V) -> Vec<Order> {
     let mut side_to_get: String = {
         match order_type {
@@ -106,4 +106,35 @@ pub fn get_orders_by_price<T: ToRedisArgs, V: ToRedisArgs>(conn: &mut Connection
     }
 
     get_orders_from_uuid_list(conn, &orders)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_get_orders_from_uuid_list() {
+        if let Ok(mut conn) = connection::get_connection(None) {
+            let list = "redis_list_test_key";
+            let pair = &Pair::new("btc", "usd", uuid::Uuid::new_v4());
+            let a: Order = Order::new("user1", OrderType::BID, OrderExecutionType::LIMIT, true, 1000, 1000, pair);
+            let b: Order = Order::new("user2", OrderType::BID, OrderExecutionType::LIMIT, true, 1000, 1000, pair);
+
+            let uuids_to_request: Vec<String> = vec![
+                String::from("BIDS-") + pair.uuid.as_str() + "-1000",
+            ];
+
+            order_store::create_order(&mut conn, &a);
+            order_store::create_order(&mut conn, &b);
+
+            let orders: Vec<Order> = get_orders_from_uuid_list(&mut conn, &uuids_to_request);
+
+            assert_eq!(orders.len(), 2);
+
+            assert_eq!(orders[0].uuid.to_string(), a.uuid.to_string());
+            assert_eq!(orders[1].uuid.to_string(), b.uuid.to_string());
+
+        } else {
+            assert_eq!(1, 2);
+        }
+    }
 }
