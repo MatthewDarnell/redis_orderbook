@@ -4,7 +4,7 @@ use redis::connection::get_connection;
 use serde_json;
 
 fn main() {
-    println!("Listening for created orders: Ctrl^c to quit");
+    println!("Listening for created orders on channel <created_orders>: Ctrl^c to quit");
     let mut conn = get_connection(None).unwrap();
     let mut conn = conn.as_pubsub();
     conn.subscribe("created_orders");

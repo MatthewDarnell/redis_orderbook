@@ -157,7 +157,7 @@ pub mod redis_pubsub {
             });
             println!("Listening for incoming orders on channel <{}>", order_subscription_channel);
             println!("Publishing created orders on channel <{}>", created_order_publishing_channel);
-            println!("Submit Order For Processing:\tredis publish {} \"{{ \"user_id\": \"user_uuid\", \"order_type\": \"BID/ASK\", \"order_execution_type\": \"LIMIT/MARKET\", \"fill_or_kill\": \"true/false\", \"price\": u64, \"amount\": u64, \"pair\": \"pair_uuid\" }}\"", order_subscription_channel);
+            println!("Submit Order For Processing:\tredis publish {} \"{{ \"user_id\": \"user_uuid\", \"order_type\": \"BID/ASK\", \"order_execution_type\": \"LIMIT/MARKET\", \"fill_or_kill\": true/false, \"price\": u64, \"amount\": u64, \"pair\": \"pair_uuid\" }}\"", order_subscription_channel);
             println!("Cancel An Open Order:\tredis publish {} \"{{\"order_type\": \"DELETE\", \"uuid\": \"order_uuid\"}}\"", order_subscription_channel);
             loop {
                 match pub_sub.get_message() {
