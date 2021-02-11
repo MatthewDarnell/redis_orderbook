@@ -177,9 +177,9 @@ This orderbook is limited to 64 bit integers (a constraint of redis' sorted sets
 If dealing with cryptocurrencies, you may need to truncate at some number of decimal places. i.e. MAX Bitcoin is `21000000.00000000`, and int64 max is `9223372036854775807`, so this library should be able to handle the full max of `21000000.00000000 * 100000000 = 2100000000000000`
 
 
-However, Ethereum maintains 12 decimal places 
+However, Ethereum maintains 18 decimal places 
 
-`1000000.000000000001 * 1000000000000 = 1000000000000000001` which is greater than MAX int64, so you would have to truncate the maximum number of decimal places handled.
+`1000000.000000000000000001 * 1000000000000000000 = 1000000000000000000000001` which is greater than MAX int64, so you would have to truncate the maximum number of decimal places handled.
 
 
 ### Disclaimer
