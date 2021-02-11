@@ -3,14 +3,14 @@
 A fast in memory orderbook written in Rust using Redis Data Structures
 
 
-###What is this?
+### What is this?
 This is an implementation of an orderbook written in Rust and running in Redis.
 It supports `LIMIT` and `MARKET` orders, as well as `fill or kill` orders. It also supports pairs of any type.
 
-###How can I use this?
+### How can I use this?
 This is intended to be easy to plug-and-play with any existing service that tracks user accounts and balances. Build the library and integrate with your application, or build the binaries and interact with redis pubsub and a simple http api.
 
-###How to build?
+### How to build?
 
 First, install rust. 
 
@@ -33,12 +33,12 @@ http_api
 
 You must also have `redis-server` running to run the application. `https://redis.io/download`
 
-###Example:
+### Example:
 
-####*1. Start Redis*
+#### *1. Start Redis*
     redis-server
 
-####*2. Run the http api*
+#### *2. Run the http api*
     cargo run --bin http_api
 
 This will start the server on `127.0.0.1:3000` You can see the available API if you navigate your web browser there. For now, create a new trading pair:
@@ -59,7 +59,7 @@ $ curl http://127.0.0.1:3000/orderbook/4ef93380-e3eb-40a3-a3d5-2cee1bf9d201
 {"asks": [], "bids": []}
 ```
 
-####*3. Run the pubsub listener*
+#### *3. Run the pubsub listener*
     cargo run --bin redis_pubsub_listener
 
 Now let's submit an order to the orderbook for this pair using `redis-cli`. In your application would just use the redis library to `publish` orders to the channel.
@@ -106,8 +106,8 @@ This user has an `ASK` for 1 btc, so his _open_ orderbook balance of btc is 1, y
 Some notes: A `MARKET` order currently does not leave a resulting order in the orderbook, it places an order at any price and does not place a new order for any leftover amount.
 
 
-###Other features
-####1. To keep track of placed orders, redis `subscribe` to the channel `created_orders`
+### Other features
+#### 1. To keep track of placed orders, redis `subscribe` to the channel `created_orders`
 
 You can run the `redis_created_orders_listener` as a demo:
 
@@ -116,7 +116,7 @@ You can run the `redis_created_orders_listener` as a demo:
     "{\"user_id\": \"user_id_1\", \"uuid\": \"b4b09e71-0813-4d8c-a11b-fb33be73d8f0\"}"
 
 
-####2. To keep track of completed trades, redis `subscribe` to the channel `trades_completed`
+#### 2. To keep track of completed trades, redis `subscribe` to the channel `trades_completed`
 
 You can run the `redis_trades_completed_listener` as a demo:
 
@@ -126,7 +126,7 @@ You can run the `redis_trades_completed_listener` as a demo:
 
 
 
-####3. To Retrieve a users' open orders, request the appropriate api from the http server:
+#### 3. To Retrieve a users' open orders, request the appropriate api from the http server:
 
 ```commandline
 $ curl http://127.0.0.1:3000/user_open_orders/user_id_1/4ef93380-e3eb-40a3-a3d5-2cee1bf9d201
@@ -149,7 +149,7 @@ $ curl http://127.0.0.1:3000/user_open_orders/user_id_1/4ef93380-e3eb-40a3-a3d5-
 ]
 ```
 
-####4. To Delete an Order, redis `publish` a json string containing the `order_id` and type `DELETE`
+#### 4. To Delete an Order, redis `publish` a json string containing the `order_id` and type `DELETE`
 
 
 ```commandline
@@ -158,7 +158,7 @@ redis-cli publish incoming_orders "{\"order_type\": \"DELETE\", \"uuid\": \"6b09
 ```
 
 
-###How is this orderbook designed?
+### How is this orderbook designed?
 
 This orderbook uses provided Redis data structures. Orders themselves are serialized and placed into a hash table, while their uuids are placed into a set. The orderbook itself is a redis sorted set, with each score representing the price and each value the key of a fifo list containing the user id and order uuid.
 
@@ -170,7 +170,7 @@ Operations:
 
 
 
-###Final Notes
+### Final Notes
 
 This orderbook is limited to 64 bit integers (a constraint of redis' sorted sets). You must multiply any amount by some integer which guarantees the passed amount is a valid int64.
 
@@ -182,6 +182,6 @@ However, Ethereum maintains 12 decimal places
 `1000000.000000000001 * 1000000000000 = 1000000000000000001` which is greater than MAX int64, so you would have to truncate the maximum number of decimal places handled.
 
 
-###Disclaimer
+### Disclaimer
 
 This orderbook is a work in progress and comes with no real or implied warranty. If you find any bugs, please don't hesitate to submit a fix!
